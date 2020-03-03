@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.5, 3.6, 3.7, 3.8]
+        python-version: [3.7, 3.8]
 
     steps:
     - uses: actions/checkout@v2
@@ -28,4 +28,4 @@ jobs:
     - name: Install pytest
       run: pip install pytest
     - name: Test with pytest
-      run: pytest -vv --tb=native
+      run: pytest -vv --tb=native tests
