@@ -44,6 +44,8 @@ async def test_aggregate(temp_dir):
     dummy_s3.files['prefix/2020-02-01-12-30-00-1234'] = b'line 1\nline 2\nline 3\n'
     dummy_s3.files['prefix/2020-02-02-14-15-30-1234'] = b'Another day\n'
     dummy_s3.files['prefix/2099-01-01-14-15-30-1234'] = b'This file is too fresh\n'
+    dummy_s3.files['prefix/E1UPX5BMQ17XXX.2020-02-10-18.8e1dfd94.gz'] = gzip.compress(b'CloudFront log 1\n')
+    dummy_s3.files['prefix/E1UPX5BMQ17XXX.2020-02-10-19.28437abc.gz'] = gzip.compress(b'Cloudfront log 2\n')
     await aggregate_s3_logs(
         bucket_name='b1',
         prefix='prefix/',
@@ -52,14 +54,16 @@ async def test_aggregate(temp_dir):
         stop_event=Event(),
         force=True,
         delay_days=3)
-    assert len(dummy_s3.files.keys()) == 5
+    assert len(dummy_s3.files.keys()) == 6, sorted(dummy_s3.files.keys())
     assert sorted(dummy_s3.files.keys())[0] == 'foo/2020-03-01-12-00-00-ABCD'
     assert re.match(r'^prefix/2020-02-01-aggregated-[0-9a-f]+.gz$', sorted(dummy_s3.files.keys())[1])
     assert re.match(r'^prefix/2020-02-02-aggregated-[0-9a-f]+.gz$', sorted(dummy_s3.files.keys())[2])
     assert sorted(dummy_s3.files.keys())[3] == 'prefix/2099-01-01-14-15-30-1234'
-    assert sorted(dummy_s3.files.keys())[4] == 'prefix/foo.txt'
+    assert re.match(r'^prefix/E1UPX5BMQ17XXX.2020-02-10-aggregated-[0-9a-f]+.gz$', sorted(dummy_s3.files.keys())[4])
+    assert sorted(dummy_s3.files.keys())[5] == 'prefix/foo.txt'
     filename_1 = sorted(dummy_s3.files.keys())[1]
     filename_2 = sorted(dummy_s3.files.keys())[2]
+    filename_4 = sorted(dummy_s3.files.keys())[4]
     assert gzip.decompress(dummy_s3.files[filename_1]) == (
         b'# prefix/2020-02-01-12-10-00-ABCD\n'
         b'Hello, World!\n'
@@ -74,4 +78,9 @@ async def test_aggregate(temp_dir):
         b'# prefix/2020-02-02-14-15-30-1234\n'
         b'Another day\n'
     )
-
+    assert gzip.decompress(dummy_s3.files[filename_4]) == (
+        b'# prefix/E1UPX5BMQ17XXX.2020-02-10-18.8e1dfd94.gz\n'
+        b'CloudFront log 1\n'
+        b'# prefix/E1UPX5BMQ17XXX.2020-02-10-19.28437abc.gz\n'
+        b'Cloudfront log 2\n'
+    )

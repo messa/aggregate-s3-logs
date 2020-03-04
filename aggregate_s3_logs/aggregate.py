@@ -16,9 +16,11 @@ from .util import run_in_thread
 logger = getLogger(__name__)
 
 
-re_filename = re.compile(r'^(?P<day>20[12][0-9]-[012][0-9]-[0-3][0-9])-[012][0-9]-[0-5][0-9]-[0-6][0-9]-[0-9A-F]+$')
+re_s3_filename = re.compile(r'^(?P<day>20[0-9][0-9]-[012][0-9]-[0-3][0-9])-[012][0-9]-[0-5][0-9]-[0-6][0-9]-[0-9a-fA-F]+$')
+re_cf_filename = re.compile(r'^(?P<dist>[0-9A-Z]+)\.(?P<day>20[0-9][0-9]-[012][0-9]-[0-3][0-9])-[012][0-9]\.[0-9a-fA-F]+\.gz$')
 
-assert re_filename.match('2019-05-27-12-16-57-674B2D6256BF2FC3')
+assert re_s3_filename.match('2019-05-27-12-16-57-674B2D6256BFFFFF')
+assert re_cf_filename.match('E1UPB5BMFFFFXX.2019-07-11-21.28437999.gz')
 
 day_worker_count = 8
 
@@ -133,20 +135,31 @@ async def concatenate_files(s3_keys, download_paths, f_res):
             f_res.write(b'\n')
             insert_newline = False
         f_res.write('# {key}\n'.format(key=s3_key).encode('UTF-8'))
-        with dp.open(mode='rb') as f_src:
-            first_chunk = True
+
+        with dp.open(mode='rb') as f_peek:
+            peek = f_peek.read(90)
+
+        f_src = None
+        try:
+            if peek[:2] == b'\x1f\x8b':
+                # gzip file
+                f_src = gzip.open(dp, mode='rb')
+            else:
+                try:
+                    peek.decode('ascii')
+                except Exception as e:
+                    raise Exception('File {} beginning is not in ASCII: {!r}'.format(s3_key, peek))
+                f_src = dp.open(mode='rb')
+
             while True:
                 chunk = f_src.read(65536)
                 if chunk == b'':
                     break
-                if first_chunk:
-                    try:
-                        chunk[:90].decode('ascii')
-                    except Exception as e:
-                        raise Exception('File {} beginning is not in ASCII: {!r}'.format(s3_key, chunk[:90]))
-                    first_chunk = False
                 f_res.write(chunk)
                 insert_newline = not chunk.endswith(b'\n')
+        finally:
+            if f_src:
+                f_src.close()
 
 
 async def get_file_sha1_hex(path):
@@ -170,14 +183,25 @@ def group_s3_items_by_day(items, delay_days):
         filename = item['Key'].rsplit('/', 1)[-1]
         if 'aggregated' in filename:
             continue
-        m = re_filename.match(filename)
-        if not m:
-            logger.debug('Unrecognized filename: %s (full key: %r)', filename, item['Key'])
+        m = re_s3_filename.match(filename)
+        if m:
+            day_str, = m.groups()
+            day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
+            if day_date >= (datetime.utcnow() - timedelta(days=delay_days)).date():
+                logger.debug('Skipping - too fresh: %s', item['Key'])
+                continue
+            groups[day_str].append(item)
             continue
-        day_str, = m.groups()
-        day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
-        if day_date >= (datetime.utcnow() - timedelta(days=delay_days)).date():
-            logger.debug('Skipping - too fresh: %s', item['Key'])
+
+        m = re_cf_filename.match(filename)
+        if m:
+            dist_id, day_str, = m.groups()
+            day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
+            if day_date >= (datetime.utcnow() - timedelta(days=delay_days)).date():
+                logger.debug('Skipping - too fresh: %s', item['Key'])
+                continue
+            groups[dist_id + '.' + day_str].append(item)
             continue
-        groups[day_str].append(item)
+
+        logger.debug('Unrecognized filename: %s (full key: %r)', filename, item['Key'])
     return dict(groups)
