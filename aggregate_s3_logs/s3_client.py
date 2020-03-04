@@ -56,12 +56,13 @@ class S3ClientWrapper:
 
     async def upload_file(self, bucket_name, key, src_path, content_type):
         async with self._upload_sem:
-            return await run_in_thread(self.upload_file_sync, bucket_name, key, src_path, content_type=content_type)
+            return await run_in_thread(self.upload_file_sync, bucket_name, key, src_path, content_type)
 
     def upload_file_sync(self, bucket_name, key, src_path, content_type):
         assert isinstance(bucket_name, str)
         assert isinstance(key, str)
         assert isinstance(src_path, Path)
+        assert isinstance(content_type, str)
         s3_client = boto3.client('s3')
         logger.debug('Uploading %s to %s %s', src_path, bucket_name, key)
         with src_path.open(mode='rb') as f:

@@ -25,6 +25,7 @@ class DummyS3Wrapper:
 
     async def upload_file(self, bucket_name, key, src_path, content_type):
         assert bucket_name == 'b1'
+        assert isinstance(content_type, str)
         self.files[key] = src_path.read_bytes()
         await sleep(0.01)
 
