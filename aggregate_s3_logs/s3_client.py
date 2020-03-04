@@ -83,6 +83,6 @@ class S3ClientWrapper:
         assert isinstance(key, str)
         s3_client = boto3.client('s3')
         logger.debug('Deleting %s %s', bucket_name, key)
-        res = s3_client.put_object(
+        res = s3_client.delete_object(
             Bucket=bucket_name,
             Key=key)
