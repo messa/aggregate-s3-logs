@@ -100,7 +100,7 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
             await concatenate_files(s3_keys, download_paths, f_res)
         logger.debug('result_path: %s (%.2f kB)', result_path, result_path.stat().st_size / 1024)
         result_hash = await get_file_sha1_hex(result_path)
-        result_filename = '{}-aggregated-{}'.format(group_id, result_hash[:7])
+        result_filename = '{}-aggregated-{}.gz'.format(group_id, result_hash[:7])
         result_key = s3_keys[0].rsplit('/', 1)[0] + '/' + result_filename
         if not force:
             logger.info('Would upload %s', result_key)
