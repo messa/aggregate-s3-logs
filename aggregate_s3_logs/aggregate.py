@@ -8,7 +8,6 @@ from logging import getLogger
 from operator import itemgetter
 import re
 from reprlib import repr as smart_repr
-from shutil import copyfileobj
 from uuid import uuid4
 
 from .util import run_in_thread
@@ -128,16 +127,26 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
 
 async def concatenate_files(s3_keys, download_paths, f_res):
     assert len(s3_keys) == len(download_paths)
+    insert_newline = False
     for s3_key, dp in zip(s3_keys, download_paths):
+        if insert_newline:
+            f_res.write(b'\n')
+            insert_newline = False
         f_res.write('# {key}\n'.format(key=s3_key).encode('UTF-8'))
         with dp.open(mode='rb') as f_src:
-            chunk = f_src.read(90)
-            try:
-                chunk.decode('ascii')
-            except Exception as e:
-                raise Exception('File {} beginning is not in ASCII: {!r}'.format(s3_key, chunk))
-            f_res.write(chunk)
-            await run_in_thread(copyfileobj, f_src, f_res)
+            first_chunk = True
+            while True:
+                chunk = f_src.read(65536)
+                if chunk == b'':
+                    break
+                if first_chunk:
+                    try:
+                        chunk[:90].decode('ascii')
+                    except Exception as e:
+                        raise Exception('File {} beginning is not in ASCII: {!r}'.format(s3_key, chunk[:90]))
+                    first_chunk = False
+                f_res.write(chunk)
+                insert_newline = not chunk.endswith(b'\n')
 
 
 async def get_file_sha1_hex(path):
