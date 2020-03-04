@@ -65,22 +65,22 @@ async def test_aggregate(temp_dir):
     filename_2 = sorted(dummy_s3.files.keys())[2]
     filename_4 = sorted(dummy_s3.files.keys())[4]
     assert gzip.decompress(dummy_s3.files[filename_1]) == (
-        b'# prefix/2020-02-01-12-10-00-ABCD\n'
+        b'# file: prefix/2020-02-01-12-10-00-ABCD\n'
         b'Hello, World!\n'
-        b'# prefix/2020-02-01-12-20-00-CDEF\n'
+        b'# file: prefix/2020-02-01-12-20-00-CDEF\n'
         b'This file has no newline at the end\n'
-        b'# prefix/2020-02-01-12-30-00-1234\n'
+        b'# file: prefix/2020-02-01-12-30-00-1234\n'
         b'line 1\n'
         b'line 2\n'
         b'line 3\n'
     )
     assert gzip.decompress(dummy_s3.files[filename_2]) == (
-        b'# prefix/2020-02-02-14-15-30-1234\n'
+        b'# file: prefix/2020-02-02-14-15-30-1234\n'
         b'Another day\n'
     )
     assert gzip.decompress(dummy_s3.files[filename_4]) == (
-        b'# prefix/E1UPX5BMQ17XXX.2020-02-10-18.8e1dfd94.gz\n'
+        b'# file: prefix/E1UPX5BMQ17XXX.2020-02-10-18.8e1dfd94.gz\n'
         b'CloudFront log 1\n'
-        b'# prefix/E1UPX5BMQ17XXX.2020-02-10-19.28437abc.gz\n'
+        b'# file: prefix/E1UPX5BMQ17XXX.2020-02-10-19.28437abc.gz\n'
         b'Cloudfront log 2\n'
     )

@@ -134,7 +134,7 @@ async def concatenate_files(s3_keys, download_paths, f_res):
         if insert_newline:
             f_res.write(b'\n')
             insert_newline = False
-        f_res.write('# {key}\n'.format(key=s3_key).encode('UTF-8'))
+        f_res.write('# file: {key}\n'.format(key=s3_key).encode('UTF-8'))
 
         with dp.open(mode='rb') as f_peek:
             peek = f_peek.read(90)
