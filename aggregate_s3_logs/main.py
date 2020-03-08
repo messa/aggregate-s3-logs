@@ -66,7 +66,7 @@ def parse_s3_url(s3_url):
     return (bucket_name, prefix)
 
 
-log_format = '%(asctime)s [%(threadName)s] %(name)s %(levelname)5s: %(message)s'
+log_format = '%(asctime)s [%(process)d %(threadName)s] %(name)s %(levelname)5s: %(message)s'
 
 
 def setup_logging(verbose):
