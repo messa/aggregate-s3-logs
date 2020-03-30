@@ -54,7 +54,7 @@ async def test_aggregate(temp_dir):
         temp_dir=temp_dir,
         stop_event=Event(),
         force=True,
-        delay_days=3)
+        min_age_days=3)
     assert len(dummy_s3.files.keys()) == 6, sorted(dummy_s3.files.keys())
     assert sorted(dummy_s3.files.keys())[0] == 'foo/2020-03-01-12-00-00-ABCD'
     assert re.match(r'^prefix/2020-02-01-aggregated-[0-9a-f]+.gz$', sorted(dummy_s3.files.keys())[1])

@@ -109,7 +109,7 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
                 logger.info('Would delete %s', k)
         else:
             await s3_client_wrapper.upload_file(bucket_name, result_key, result_path, content_type='application/gzip')
-            await s3_client.delete_objects(bucket_name, s3_keys)
+            await s3_client_wrapper.delete_objects(bucket_name, s3_keys)
     except CancelledError as e:
         logger.info('[%s] Cancelled', group_id)
         raise e
@@ -186,7 +186,7 @@ def group_s3_items_by_day(items, min_age_days):
         if m:
             day_str, = m.groups()
             day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
-            if day_date >= (datetime.utcnow() - timedelta(days=delay_days)).date():
+            if day_date >= (datetime.utcnow() - timedelta(days=min_age_days)).date():
                 logger.debug('Skipping - too fresh: %s', item['Key'])
                 continue
             groups[day_str].append(item)
