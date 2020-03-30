@@ -109,10 +109,7 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
                 logger.info('Would delete %s', k)
         else:
             await s3_client_wrapper.upload_file(bucket_name, result_key, result_path, content_type='application/gzip')
-            await process_queue([
-                partial(s3_client_wrapper.delete_object, bucket_name, s3_key)
-                for s3_key in s3_keys
-            ])
+            await s3_client.delete_objects(bucket_name, s3_keys)
     except CancelledError as e:
         logger.info('[%s] Cancelled', group_id)
         raise e

@@ -74,15 +74,43 @@ class S3ClientWrapper:
                 StorageClass='STANDARD_IA',
                 ContentType=content_type)
 
-    async def delete_object(self, bucket_name, key):
+    async def delete_objects(self, bucket_name, keys):
         async with self._upload_sem:
-            return await run_in_thread(self.delete_object_sync, bucket_name, key)
+            return await run_in_thread(self.delete_objects_sync, bucket_name, keys)
 
-    def delete_object_sync(self, bucket_name, key):
+    def delete_objects_sync(self, bucket_name, keys):
         assert isinstance(bucket_name, str)
-        assert isinstance(key, str)
+        assert isinstance(keys, list)
+        assert [isinstance(key, str) for key in keys]
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_objects
         s3_client = boto3.client('s3')
-        logger.debug('Deleting %s %s', bucket_name, key)
-        res = s3_client.delete_object(
-            Bucket=bucket_name,
-            Key=key)
+        chunks = split(keys, 500)
+        for n, chunk in enumerate(chunks, start=1):
+            logger.debug('Deleting %d keys in %s (chunk %d/%d): %r', len(chunk), bucket_name, n, len(chunks), keys)
+            res = s3_client.delete_objects(
+                Bucket=bucket_name,
+                Delete={
+                    'Quiet': False,
+                    'Objects': [{'Key': key} for key in chunk],
+                })
+            if res.get('Errors'):
+                raise Exception('delete_objects returned Errors: {}'.format(res['Errors']))
+
+
+def split(items, chunk_size):
+    chunks = []
+    chunk = []
+    for item in items:
+        chunk.append(item)
+        if len(chunk) >= chunk_size:
+            chunks.append(chunk)
+            chunk = []
+    if chunk:
+        chunks.append(chunks)
+    return chunks
+
+
+assert split('foobar', 10) == ['f', 'o', 'o', 'b', 'a', 'r']
+assert split('foobar', 6) == ['f', 'o', 'o', 'b', 'a', 'r']
+assert split('foobar', 5) == ['f', 'o', 'o', 'b', 'a'], ['r']
+assert split('foobar', 3) == ['f', 'o', 'o'], ['b', 'a', 'r']
