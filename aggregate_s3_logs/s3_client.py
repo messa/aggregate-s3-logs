@@ -87,7 +87,13 @@ class S3ClientWrapper:
         assert isinstance(src_path, Path)
         assert isinstance(content_type, str)
         s3_client = boto3.client('s3')
-        logger.debug('Uploading %s to %s %s', src_path, bucket_name, key)
+        try:
+            size_kb = src_path.stat().st_size / 1024
+        except Exception as e:
+            # should not fail; but also it's not essential, it's just for logging
+            logger.exception('Failed to get size of %s: %r', src_path, e)
+            size_kb = -1
+        logger.debug('Uploading %s (%.2f kB) to %s %s', src_path, size_kb, bucket_name, key)
         with src_path.open(mode='rb') as f:
             res = s3_client.put_object(
                 Bucket=bucket_name,
