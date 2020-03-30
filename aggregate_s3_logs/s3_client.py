@@ -124,11 +124,11 @@ def split(items, chunk_size):
             chunks.append(chunk)
             chunk = []
     if chunk:
-        chunks.append(chunks)
+        chunks.append(chunk)
     return chunks
 
 
-assert split('foobar', 10) == ['f', 'o', 'o', 'b', 'a', 'r']
-assert split('foobar', 6) == ['f', 'o', 'o', 'b', 'a', 'r']
-assert split('foobar', 5) == ['f', 'o', 'o', 'b', 'a'], ['r']
-assert split('foobar', 3) == ['f', 'o', 'o'], ['b', 'a', 'r']
+assert split('foobar', 10) == [['f', 'o', 'o', 'b', 'a', 'r']]
+assert split('foobar', 6) == [['f', 'o', 'o', 'b', 'a', 'r']]
+assert split('foobar', 5) == [['f', 'o', 'o', 'b', 'a'], ['r']]
+assert split('foobar', 3) == [['f', 'o', 'o'], ['b', 'a', 'r']]
