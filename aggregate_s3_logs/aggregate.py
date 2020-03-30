@@ -25,14 +25,14 @@ assert re_cf_filename.match('E1UPB5BMFFFFXX.2019-07-11-21.28437999.gz')
 day_worker_count = 8
 
 
-async def aggregate_s3_logs(bucket_name, prefix, s3_client_wrapper, temp_dir, stop_event, force, delay_days=3):
+async def aggregate_s3_logs(bucket_name, prefix, s3_client_wrapper, temp_dir, min_age_days, stop_event, force):
     items = await s3_client_wrapper.list_objects(Bucket=bucket_name, Delimiter='/', Prefix=prefix)
     items.sort(key=itemgetter('Key'))
     if not items:
         logger.warning('No objects found with prefix %r', prefix)
         return
     logger.debug('Retrieved %d keys: %s - %s', len(items), items[0]['Key'], items[-1]['Key'])
-    groups = group_s3_items_by_day(items, delay_days=delay_days)
+    groups = group_s3_items_by_day(items, min_age_days=min_age_days)
     for day in sorted(groups.keys()):
         glacier_keys = [x['Key'] for x in groups[day] if x['StorageClass'] in ('GLACIER', 'DEEP_ARCHIVE')]
         if glacier_keys:
@@ -174,7 +174,9 @@ def get_file_sha1_hex_sync(path):
     return h.hexdigest()
 
 
-def group_s3_items_by_day(items, delay_days):
+def group_s3_items_by_day(items, min_age_days):
+    assert isinstance(min_age_days, int)
+    assert min_age_days >= 0
     groups = defaultdict(list)
     for item in items:
         filename = item['Key'].rsplit('/', 1)[-1]
@@ -194,7 +196,7 @@ def group_s3_items_by_day(items, delay_days):
         if m:
             dist_id, day_str, = m.groups()
             day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
-            if day_date >= (datetime.utcnow() - timedelta(days=delay_days)).date():
+            if day_date >= (datetime.utcnow() - timedelta(days=min_age_days)).date():
                 logger.debug('Skipping - too fresh: %s', item['Key'])
                 continue
             groups[dist_id + '.' + day_str].append(item)

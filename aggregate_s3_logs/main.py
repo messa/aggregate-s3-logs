@@ -23,6 +23,7 @@ def aggregate_s3_logs_main():
     p.add_argument('--log-file')
     p.add_argument('--temp-dir')
     p.add_argument('--force', '-f', action='store_true', default=False)
+    p.add_argument('--min-age', '-m', metavar='DAYS', type=int, default=2, help='do not process files recent than N days (default: 2)')
     p.add_argument('s3_url')
     args = p.parse_args()
     setup_logging(verbose=args.verbose)
@@ -39,6 +40,7 @@ def aggregate_s3_logs_main():
                 bucket_name=bucket_name,
                 prefix=prefix,
                 temp_dir=Path(temp_dir),
+                min_age_days=args.min_age,
                 force=args.force,
             ))
     except Exception as e:
@@ -46,7 +48,7 @@ def aggregate_s3_logs_main():
         sys.exit(repr(e))
 
 
-async def async_main(bucket_name, prefix, temp_dir, force):
+async def async_main(bucket_name, prefix, temp_dir, min_age_days, force):
     stop_event = Event()
     loop = get_running_loop()
     loop.add_signal_handler(SIGTERM, lambda: stop_event.set())
@@ -55,6 +57,7 @@ async def async_main(bucket_name, prefix, temp_dir, force):
         bucket_name=bucket_name,
         prefix=prefix,
         temp_dir=Path(temp_dir),
+        min_age_days=min_age_days,
         force=force,
         stop_event=stop_event,
         s3_client_wrapper=S3ClientWrapper())
