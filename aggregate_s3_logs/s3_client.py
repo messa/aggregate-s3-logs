@@ -12,15 +12,35 @@ from .util import get_running_loop, run_in_thread
 logger = getLogger(__name__)
 
 
+class SemaphoreWrapper:
+
+    def __init__(self, value):
+        self._value = value
+        self._sem = None
+        self._loop = None
+
+    def _get_sem(self):
+        if self._sem is None:
+            self._loop = get_running_loop()
+            self._sem = Semaphore(self._value)
+        assert self._loop is get_running_loop()
+        return self._sem
+
+    def __aenter__(self):
+        return self._get_sem().__aenter__()
+
+    def __aexit__(self, *args):
+        return self._get_sem().__aexit__(*args)
+
+
 class S3ClientWrapper:
 
     max_concurrent_downloads = 16
     max_concurrent_uploads = 16
 
     def __init__(self):
-        assert get_running_loop() # I've learned not to create asyncio primitives outside the loop :)
-        self._download_sem = Semaphore(self.max_concurrent_downloads)
-        self._upload_sem = Semaphore(self.max_concurrent_uploads)
+        self._download_sem = SemaphoreWrapper(self.max_concurrent_downloads)
+        self._upload_sem = SemaphoreWrapper(self.max_concurrent_uploads)
 
     async def list_objects(self, **kwargs):
         async with self._download_sem:
@@ -34,11 +54,14 @@ class S3ClientWrapper:
         # See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Paginator.ListObjectsV2.paginate
         items = []
         for n, response in enumerate(response_iterator, start=1):
+            logger.debug('response_iterator[%d]: %r', n-1, response)
+            contents = response.get('Contents', [])
             logger.info(
                 'Retrieved list_objects_v2 page %d with %d items (%d total)',
-                n, len(response['Contents']), len(items) + len(response['Contents']))
-            for item in response['Contents']:
+                n, len(contents), len(items) + len(contents))
+            for item in contents:
                 items.append(item)
+            del contents
         return items
 
     async def download_file(self, bucket_name, key, download_path):
