@@ -23,7 +23,7 @@ def aggregate_s3_logs_main():
     p.add_argument('--log-file')
     p.add_argument('--temp-dir')
     p.add_argument('--force', '-f', action='store_true', default=False)
-    p.add_argument('--min-age', '-m', metavar='DAYS', type=int, default=2, help='do not process files recent than N days (default: 2)')
+    p.add_argument('--min-age', '-m', metavar='DAYS', type=int, default=1, help='do not process files recent than N days (default: 1)')
     p.add_argument('s3_url')
     args = p.parse_args()
     setup_logging(verbose=args.verbose)
