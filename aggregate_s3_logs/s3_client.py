@@ -54,7 +54,6 @@ class S3ClientWrapper:
         # See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Paginator.ListObjectsV2.paginate
         items = []
         for n, response in enumerate(response_iterator, start=1):
-            logger.debug('response_iterator[%d]: %r', n-1, response)
             contents = response.get('Contents', [])
             logger.info(
                 'Retrieved list_objects_v2 page %d with %d items (%d total)',
