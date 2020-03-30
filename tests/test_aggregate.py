@@ -34,6 +34,12 @@ class DummyS3Wrapper:
         del self.files[key]
         await sleep(0.01)
 
+    async def delete_objects(self, bucket_name, keys):
+        assert bucket_name == 'b1'
+        for key in keys:
+            del self.files[key]
+        await sleep(0.01)
+
 
 @mark.asyncio
 async def test_aggregate(temp_dir):
