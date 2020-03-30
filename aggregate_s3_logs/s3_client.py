@@ -4,6 +4,7 @@ from logging import getLogger
 from pathlib import Path
 from shutil import copyfileobj
 import threading
+from time import sleep as sleep_sync
 
 from .util import get_running_loop, run_in_thread
 
@@ -23,9 +24,9 @@ class S3ClientWrapper:
 
     async def list_objects(self, **kwargs):
         async with self._download_sem:
-            return await run_in_thread(self.list_objects_sync, kwargs)
+            return await run_in_thread(self._list_objects_sync, kwargs)
 
-    def list_objects_sync(self, paginate_kwargs):
+    def _list_objects_sync(self, paginate_kwargs):
         assert paginate_kwargs['Bucket']
         s3_client = boto3.client('s3')
         paginator = s3_client.get_paginator('list_objects_v2')
@@ -42,9 +43,9 @@ class S3ClientWrapper:
 
     async def download_file(self, bucket_name, key, download_path):
         async with self._download_sem:
-            return await run_in_thread(self.download_file_sync, bucket_name, key, download_path)
+            return await run_in_thread(self._download_file_sync, bucket_name, key, download_path)
 
-    def download_file_sync(self, bucket_name, key, download_path):
+    def _download_file_sync(self, bucket_name, key, download_path):
         assert isinstance(bucket_name, str)
         assert isinstance(key, str)
         assert isinstance(download_path, Path)
@@ -56,9 +57,9 @@ class S3ClientWrapper:
 
     async def upload_file(self, bucket_name, key, src_path, content_type):
         async with self._upload_sem:
-            return await run_in_thread(self.upload_file_sync, bucket_name, key, src_path, content_type)
+            return await run_in_thread(self._upload_file_sync, bucket_name, key, src_path, content_type)
 
-    def upload_file_sync(self, bucket_name, key, src_path, content_type):
+    def _upload_file_sync(self, bucket_name, key, src_path, content_type):
         assert isinstance(bucket_name, str)
         assert isinstance(key, str)
         assert isinstance(src_path, Path)
@@ -76,9 +77,9 @@ class S3ClientWrapper:
 
     async def delete_objects(self, bucket_name, keys):
         async with self._upload_sem:
-            return await run_in_thread(self.delete_objects_sync, bucket_name, keys)
+            return await run_in_thread(self._delete_objects_sync, bucket_name, keys)
 
-    def delete_objects_sync(self, bucket_name, keys):
+    def _delete_objects_sync(self, bucket_name, keys):
         assert isinstance(bucket_name, str)
         assert isinstance(keys, list)
         assert [isinstance(key, str) for key in keys]
@@ -87,14 +88,31 @@ class S3ClientWrapper:
         chunks = split(keys, 500)
         for n, chunk in enumerate(chunks, start=1):
             logger.debug('Deleting %d keys in %s (chunk %d/%d): %r', len(chunk), bucket_name, n, len(chunks), keys)
-            res = s3_client.delete_objects(
-                Bucket=bucket_name,
-                Delete={
-                    'Quiet': False,
-                    'Objects': [{'Key': key} for key in chunk],
-                })
-            if res.get('Errors'):
-                raise Exception('delete_objects returned Errors: {}'.format(res['Errors']))
+            try_count = 0
+            while True:
+                try_count += 1
+                if try_count > 1:
+                    logger.debug('Trying again to delete %d keys in %s', len(chunk), bucket_name)
+                try:
+                    res = s3_client.delete_objects(
+                        Bucket=bucket_name,
+                        Delete={
+                            'Quiet': False,
+                            'Objects': [{'Key': key} for key in chunk],
+                        })
+                except Exception as e:
+                    if try_count >= 5:
+                        raise e
+                    sleep_duration = 1 + 2**try_count
+                    logger.exception('delete_objects failed: %r; trying again in %d s...', e, sleep_duration)
+                    sleep_sync(sleep_duration)
+                    continue
+
+                logger.debug('delete_objects result: %r', res)
+                if res.get('Errors'):
+                    raise Exception('delete_objects returned Errors: {}'.format(res['Errors']))
+                del res
+                break
 
 
 def split(items, chunk_size):
