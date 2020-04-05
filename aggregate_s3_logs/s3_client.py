@@ -2,6 +2,7 @@ from asyncio import Semaphore
 import boto3
 from logging import getLogger
 from pathlib import Path
+from pprint import pformat
 from shutil import copyfileobj
 import threading
 from time import sleep as sleep_sync
@@ -113,9 +114,11 @@ class S3ClientWrapper:
         assert [isinstance(key, str) for key in keys]
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_objects
         s3_client = boto3.client('s3')
-        chunks = split(keys, 500)
+        chunks = split(keys, 100)
         for n, chunk in enumerate(chunks, start=1):
-            logger.debug('Deleting %d keys in %s (chunk %d/%d): %r', len(chunk), bucket_name, n, len(chunks), keys)
+            logger.debug(
+                'Deleting %d keys in %s (chunk %d/%d):\n%s',
+                len(chunk), bucket_name, n, len(chunks), pformat(keys, width=200, compact=True))
             try_count = 0
             while True:
                 try_count += 1
@@ -136,7 +139,7 @@ class S3ClientWrapper:
                     sleep_sync(sleep_duration)
                     continue
 
-                logger.debug('delete_objects result: %r', res)
+                logger.debug('delete_objects result:\n%s', pformat(res, width=200, compact=True))
                 if res.get('Errors'):
                     raise Exception('delete_objects returned Errors: {}'.format(res['Errors']))
                 del res
