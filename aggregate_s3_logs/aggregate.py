@@ -88,6 +88,7 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
     logger.info('[%s] Aggregating %d files', group_id, len(s3_items))
     s3_keys = [s3_item['Key'] for s3_item in s3_items]
     download_paths = [temp_dir / k.split('/')[-1] for k in s3_keys]
+    # TODO: make download_paths filenames unique so there will be no conflicts when recursive mode is implemented
     logger.debug('[%s] s3_keys:\n%s', group_id, pformat(s3_keys, width=200, compact=True))
     result_path = temp_dir / '{}-{}.gz'.format(group_id, uuid4().hex)
     try:
