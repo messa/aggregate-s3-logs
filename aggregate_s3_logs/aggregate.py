@@ -6,6 +6,7 @@ import gzip
 import hashlib
 from logging import getLogger
 from operator import itemgetter
+from pprint import pformat
 import re
 from reprlib import repr as smart_repr
 from uuid import uuid4
@@ -87,8 +88,7 @@ async def process_group(group_id, s3_items, stop_event, temp_dir, bucket_name, s
     logger.info('[%s] Aggregating %d files', group_id, len(s3_items))
     s3_keys = [s3_item['Key'] for s3_item in s3_items]
     download_paths = [temp_dir / k.split('/')[-1] for k in s3_keys]
-    logger.debug('[%s] s3_keys: %r', group_id, s3_keys)
-    logger.debug('[%s] download_paths: %r', group_id, download_paths)
+    logger.debug('[%s] s3_keys:\n%s', group_id, pformat(s3_keys, width=200, compact=True))
     result_path = temp_dir / '{}-{}.gz'.format(group_id, uuid4().hex)
     try:
         assert len(download_paths) == len(s3_items)
